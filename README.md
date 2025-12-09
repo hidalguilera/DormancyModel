@@ -18,21 +18,23 @@ Both approaches support the central result of the paper: **variable environments
 
 This folder contains C++ simulations of a population governed by a delayed logistic equation with environmental stochasticity. The trajectories are analyzed in `figures.ipynb`.
 
+
 ## Model summary
 
 The population density evolves as:
 
-\[ `\dot{x}`{=tex}(t) = (b +
-`\sigma `{=tex}`\xi`{=tex}\_`\tau`{=tex}(t)), x(t-`\alpha`{=tex})
-`\left`{=tex}(1 - `\frac{x(t)}{K}`{=tex} `\right`{=tex}) - d, x(t). \]
+$$
+\dot{x}(t) = \left(b + \sigma \, \xi_\tau(t)\right) x(t-\alpha)
+\left(1 - \frac{x(t)}{K}\right) - d \, x(t)
+$$
 
-Environmental noise 
-is represented by a dichotomous Markov process with
+Environmental noise is represented by a dichotomous Markov process with
 autocorrelation:
 
-\[ `\langle `{=tex}`\xi`{=tex}*`\tau`{=tex}(t),
-`\xi`{=tex}*`\tau`{=tex}(s)`\rangle `{=tex}=
-e\^{-2\|t-s\|/`\tau`{=tex}}. \]
+$$
+\langle \xi_\tau(t), \xi_\tau(s) \rangle =
+e^{-2|t-s|/\tau}
+$$
 
 ### Compilation
 
