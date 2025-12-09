@@ -4,7 +4,7 @@
 Miguel A. Muñoz
 
 This repository contains the code and data used in the paper\
-**"Fluctuating environments favor extreme dormancy strategies and penalize intermediate ones"**,\ [arXiv:2512.05856 (2025)](https://arxiv.org/abs/2512.05856)
+**"Fluctuating environments favor extreme dormancy strategies and penalize intermediate ones"**, [arXiv:2512.05856 (2025)](https://arxiv.org/abs/2512.05856)
 
 
 It includes two main components:
@@ -22,11 +22,11 @@ This folder contains C++ simulations of a population governed by a delayed logis
 In this model, the population density evolves as
 
 $$
-dx/dt = \left(b + \sigma  \xi_\tau(t)\right) x(t-\alpha)
+\frac{dx}{dt} = \left(b + \sigma  \xi_\tau(t)\right) x(t-\alpha)
 \left(1 - \frac{x(t)}{K}\right) - d  x(t).
 $$
 
-Environmental noise is represented by a dichotomous Markov process that alternates between $\xi=\pm 1$ at constant rate $\tau^{-1}$.
+Environmental noise is represented by a dichotomous Markov process that alternates between $\xi_\tau=\pm 1$ at constant rate $\tau^{-1}$.
 
 ## Compilation
 
