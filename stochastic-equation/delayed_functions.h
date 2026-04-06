@@ -2,16 +2,32 @@
 double integrate_lineardynamics_delay(double alpha, double b0, double d, double sigma, double tau, double x0, double dt, double tmax, bool log_integration);
 double integrate_lineardynamics_nodelay(double b0, double d, double sigma, double tau, double x0, double dt, double tmax);
 
-
-
 void integrate_nonlineardynamics(double alpha, double b0, double d, double sigma, double tau, double K, double x0, double dt, double tmax, double traj_every_dt, std::vector<double>& traj_x, std::vector<double>& traj_env);
 double calculate_extinction_time(double alpha, double b0, double d, double sigma, double tau, double K, double x0, double dt, double tmax, double x_abs);
 
 double calculate_G_delay(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration);
 double calculate_G_nodelay(double b0, double d, double sigma, double tau, double dt, double tmax);
-
 double calculate_meanG_delay(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration, int samples, double *Gstd);
 double calculate_meanG_nodelay(double b0, double d, double sigma, double tau, double dt, double tmax, int samples, double *Gstd);
+
+double integrate_lineardynamics_delay_OU(double alpha, double b0, double d, double sigma, double tau, double x0, double dt, double tmax, bool log_integration);
+double integrate_lineardynamics_nodelay_OU(double b0, double d, double sigma, double tau, double x0, double dt, double tmax);
+
+double calculate_G_delay_OU(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration);
+double calculate_G_nodelay_OU(double b0, double d, double sigma, double tau, double dt, double tmax);
+
+double calculate_meanG_delay_OU(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration, int samples, double *Gstd);
+double calculate_meanG_nodelay_OU(double b0, double d, double sigma, double tau, double dt, double tmax, int samples, double *Gstd);
+
+double integrate_lineardynamics_delay_stochastic_death(double alpha, double b, double d0, double sigma, double tau, double x0, double dt, double tmax, bool log_integration);
+double integrate_lineardynamics_nodelay_stochastic_death(double b, double d0, double sigma, double tau, double x0, double dt, double tmax);
+
+double calculate_G_delay_stochastic_death(double alpha, double b, double d0, double sigma, double tau, double dt, double tmax, bool log_integration);
+double calculate_G_nodelay_stochastic_death(double b, double d0, double sigma, double tau, double dt, double tmax);
+
+double calculate_meanG_delay_stochastic_death(double alpha, double b, double d0, double sigma, double tau, double dt, double tmax, bool log_integration, int samples, double *Gstd);
+double calculate_meanG_nodelay_stochastic_death(double b, double d0, double sigma, double tau, double dt, double tmax, int samples, double *Gstd);
+
 
 
 bool readParameters(
@@ -52,26 +68,6 @@ bool readParameters(
             else if (key == "d_y") d_y = value;
         }
     }
-
-
-/*
-    cout << "alpha = " << alpha << endl;
-    cout << "b0 = " << b0 << endl;
-    cout << "d = " << d << endl;
-    cout << "sigma = " << sigma << endl;
-    cout << "tau = " << tau << endl;
-    cout << "dt = " << dt << endl;
-    cout << "tmax = " << tmax << endl;
-    cout << "samples = " << samples << endl;
-    cout << "x_min = " << x_min << endl;
-    cout << "x_max = " << x_max << endl;
-    cout << "d_x = " << d_x << endl;
-    cout << "y_min = " << y_min << endl;
-    cout << "y_max = " << y_max << endl;
-    cout << "d_y = " << d_y << endl;
-    cout << endl;
-*/
-
     infile.close();
     return true;
 }
@@ -237,6 +233,278 @@ double integrate_lineardynamics_delay(double alpha, double b0, double d, double 
     }
 
 }
+
+double integrate_lineardynamics_delay_OU(double alpha, double b0, double d, double sigma, double tau, double x0, double dt, double tmax, bool log_integration)
+{
+	// check alpha is multiple of dt
+    // double check_alpha = fmod(alpha, dt);
+
+	double coeff_ou_1 = exp(-dt/(2*tau));
+	double coeff_ou_2 = sqrt(1.-exp(-dt/tau));
+
+    double x = x0;
+    if(log_integration)
+    {
+        double y = log(x);
+        double env = RANDOM_GAUSS(1.0);
+
+        // past history
+        int n_past = 2*int(alpha/dt);
+        double *y_past = (double *)malloc(n_past*sizeof(double));
+        double *env_past = (double *)malloc(n_past*sizeof(double));
+
+        for(int i=0; i<n_past; i++)
+        {
+            y_past[i] = y;
+            env_past[i] = env;
+        }
+
+        int index_t_alpha = 0;
+        double t = 0.;
+        
+        while(t<tmax)
+        {
+
+            // compute next environments
+            double env_prenext = coeff_ou_1*env + coeff_ou_2*RANDOM_GAUSS(1.);
+            double env_next = coeff_ou_1*env_prenext + coeff_ou_2*RANDOM_GAUSS(1.);
+			
+            // RK4 - compute intermediate points
+            double k1 = max(b0+sigma*env_past[index_t_alpha], 0.)*exp(y_past[index_t_alpha]-y)-d;
+            double k2 = max(b0+sigma*env_past[(index_t_alpha+1)%n_past], 0.)*exp(y_past[(index_t_alpha+1)%n_past]-(y+dt*k1/2.))-d;
+            double k3 = max(b0+sigma*env_past[(index_t_alpha+1)%n_past], 0.)*exp(y_past[(index_t_alpha+1)%n_past]-(y+dt*k2/2.))-d;
+            double k4 = max(b0+sigma*env_past[(index_t_alpha+2)%n_past], 0.)*exp(y_past[(index_t_alpha+2)%n_past]-(y+dt*k3))-d;
+
+            // RK4
+            double y_next = y + dt/6.*(k1+2.*k2+2.*k3+k4);
+
+            // update past, interpolating at the intermediate step x(t+dt/2)
+            y_past[index_t_alpha] = y;
+            y_past[index_t_alpha+1] = (y_next+y)/2.;
+            
+            env_past[index_t_alpha] = env;
+            env_past[index_t_alpha+1] = env_prenext;
+            
+            index_t_alpha = (index_t_alpha+2)%n_past;
+
+
+            y = y_next;
+            env = env_next;
+
+            t += dt;
+        }
+
+            free(y_past);
+            free(env_past);
+
+            return exp(y);
+    }
+    else
+    {
+        double env = RANDOM_GAUSS(1.);
+        
+        // past // TODO: INCLUDE ALPHA=0 IN MY SIMULATIONS!
+        int n_past = 2*int(alpha/dt);
+        double *x_past = (double *)malloc(n_past*sizeof(double));
+        double *env_past = (double *)malloc(n_past*sizeof(double));
+
+        for(int i=0; i<n_past; i++)
+        {
+            x_past[i] = x;
+            env_past[i] = env;
+        }
+
+        int index_t_alpha = 0;
+        double t = 0.;
+        
+        while(t<tmax)
+		{
+
+            // compute next environments
+            double env_prenext = coeff_ou_1*env + coeff_ou_2*RANDOM_GAUSS(1.);
+            double env_next = coeff_ou_1*env_prenext + coeff_ou_2*RANDOM_GAUSS(1.);
+       
+            // RK4 - compute intermediate points
+            double k1 = max(b0+sigma*env_past[index_t_alpha], 0.)*x_past[index_t_alpha]-d*x;
+            double k2 = max(b0+sigma*env_past[(index_t_alpha+1)%n_past], 0.)*x_past[(index_t_alpha+1)%n_past]-d*(x+dt*k1/2.);
+            double k3 = max(b0+sigma*env_past[(index_t_alpha+1)%n_past], 0.)*x_past[(index_t_alpha+1)%n_past]-d*(x+dt*k2/2.);
+            double k4 = max(b0+sigma*env_past[(index_t_alpha+2)%n_past], 0.)*x_past[(index_t_alpha+2)%n_past]-d*(x+dt*k3);
+
+            // RK4
+            double x_next = x + dt*(k1+2.*k2+2.*k3+k4)/6.;
+
+            // update past, interpolating at the intermediate step x(t+dt/2)
+            x_past[index_t_alpha] = x;
+            x_past[index_t_alpha+1] = (x_next+x)/2.;
+
+            env_past[index_t_alpha] = env;
+            env_past[index_t_alpha+1] = env_prenext;
+
+            index_t_alpha = (index_t_alpha+2)%n_past;
+
+            x = x_next;
+            env = env_next;
+
+            t += dt;
+ 
+        }
+
+        free(x_past);
+        free(env_past);
+        
+        return x;
+    }
+
+}
+
+double integrate_lineardynamics_delay_stochastic_death(double alpha, double b, double d0, double sigma, double tau, double x0, double dt, double tmax, bool log_integration)
+{
+    // check alpha is multiple of dt
+    // double check_alpha = fmod(alpha, dt);
+
+    double x = x0;
+    if(log_integration)
+    {
+        double y = log(x);
+        double env;
+        if(RANDOM < 0.5)
+            env = +1.;
+        else env = -1.;
+
+        // past history
+        int n_past = 2*int(alpha/dt);
+        double *y_past = (double *)malloc(n_past*sizeof(double));
+        double *env_past = (double *)malloc(n_past*sizeof(double));
+
+        for(int i=0; i<n_past; i++)
+        {
+            y_past[i] = y;
+            env_past[i] = env;
+        }
+
+        int index_t_alpha = 0;
+        double t = 0.;
+        
+        double t_next_change_env = t+RANDOM_EXP(tau);
+        
+        while(t<tmax)
+        {
+
+            // compute next environments
+            double env_next = env;
+            double env_prenext = env;
+            if((t+dt)>=t_next_change_env)
+            {
+                env_next = -env_next;
+                if((t+dt/2.)>=t_next_change_env)
+                    env_prenext = -env_prenext;
+
+                t_next_change_env += RANDOM_EXP(tau);
+            }
+
+            // RK4 - compute intermediate points
+            double k1 = b*exp(y_past[index_t_alpha]-y)-(d0+sigma*env_past[index_t_alpha]);
+            double k2 = b*exp(y_past[(index_t_alpha+1)%n_past]-(y+dt*k1/2.))-(d0+sigma*env_past[(index_t_alpha+1)%n_past]);
+            double k3 = b*exp(y_past[(index_t_alpha+1)%n_past]-(y+dt*k2/2.))-(d0+sigma*env_past[(index_t_alpha+1)%n_past]);
+            double k4 = b*exp(y_past[(index_t_alpha+2)%n_past]-(y+dt*k3))-(d0+sigma*env_past[(index_t_alpha+2)%n_past]);
+
+            // RK4
+            double y_next = y + dt/6.*(k1+2.*k2+2.*k3+k4);
+
+            // update past, interpolating at the intermediate step x(t+dt/2)
+            y_past[index_t_alpha] = y;
+            y_past[index_t_alpha+1] = (y_next+y)/2.;
+            
+            env_past[index_t_alpha] = env;
+            env_past[index_t_alpha+1] = env_prenext;
+            
+            index_t_alpha = (index_t_alpha+2)%n_past;
+
+
+            y = y_next;
+            env = env_next;
+
+            t += dt;
+        }
+
+            free(y_past);
+            free(env_past);
+
+            return exp(y);
+    }
+    else
+    {
+        double env;
+        if(RANDOM < 0.5)
+            env = +1.;
+        else env = -1.;
+        
+        // past // TODO: INCLUDE ALPHA=0 IN MY SIMULATIONS!
+        int n_past = 2*int(alpha/dt);
+        double *x_past = (double *)malloc(n_past*sizeof(double));
+        double *env_past = (double *)malloc(n_past*sizeof(double));
+
+        for(int i=0; i<n_past; i++)
+        {
+            x_past[i] = x;
+            env_past[i] = env;
+        }
+
+        int index_t_alpha = 0;
+        double t = 0.;
+        double t_next_change_env = t+RANDOM_EXP(tau);
+        
+        while(t<tmax)
+        {
+
+            // compute next environments
+            double env_next = env;
+            double env_prenext = env;
+            if((t+dt)>=t_next_change_env)
+            {
+                env_next = -env_next;
+                if((t+dt/2.)>=t_next_change_env)
+                    env_prenext = -env_prenext;
+
+                t_next_change_env += RANDOM_EXP(tau);
+            }
+
+        
+
+
+            // RK4 - compute intermediate points
+            double k1 = b*x_past[index_t_alpha]-(d0+sigma*env_past[index_t_alpha])*x;
+            double k2 = b*x_past[(index_t_alpha+1)%n_past]-(d0+sigma*env_past[(index_t_alpha+1)%n_past])*(x+dt*k1/2.);
+            double k3 = b*x_past[(index_t_alpha+1)%n_past]-(d0+sigma*env_past[(index_t_alpha+1)%n_past])*(x+dt*k2/2.);
+            double k4 = b*x_past[(index_t_alpha+2)%n_past]-(d0+sigma*env_past[(index_t_alpha+2)%n_past])*(x+dt*k3);
+
+            // RK4
+            double x_next = x + dt*(k1+2.*k2+2.*k3+k4)/6.;
+
+            // update past, interpolating at the intermediate step x(t+dt/2)
+            x_past[index_t_alpha] = x;
+            x_past[index_t_alpha+1] = (x_next+x)/2.;
+
+            env_past[index_t_alpha] = env;
+            env_past[index_t_alpha+1] = env_prenext;
+
+            index_t_alpha = (index_t_alpha+2)%n_past;
+
+            x = x_next;
+            env = env_next;
+
+            t += dt;
+ 
+        }
+
+        free(x_past);
+        free(env_past);
+        
+        return x;
+    }
+
+}
+
 
 void integrate_nonlineardynamics(double alpha, double b0, double d, double sigma, double tau, double K, double x0, double dt, double tmax, double traj_every_dt, std::vector<double>& traj_x, std::vector<double>& traj_env)
 {
@@ -693,11 +961,80 @@ double integrate_lineardynamics_nodelay(double b0, double d, double sigma, doubl
         return exp(y);
 }
 
+double integrate_lineardynamics_nodelay_OU(double b0, double d, double sigma, double tau, double x0, double dt, double tmax)
+{
+    // check alpha is multiple of dt
+    // double check_alpha = fmod(alpha, dt);
+
+    double y = log(x0);
+    double env = RANDOM_GAUSS(1.0);
+
+	double coeff_ou_1 = exp(-dt*tau);
+	double coeff_ou_2 = sqrt(1.-exp(-2*dt/tau));
+
+    double t = 0.;
+
+    while(t<tmax)
+    {
+        // compute next environments
+        double env_next = coeff_ou_1*env + coeff_ou_2*RANDOM_GAUSS(1.);
+
+        double y_next = y + dt*(max(b0+sigma*env,0.)-d);
+
+        y = y_next;
+        env = env_next;
+
+        t += dt;
+    }
+        return exp(y);
+}
+
+double integrate_lineardynamics_nodelay_stochastic_death(double b, double d0, double sigma, double tau, double x0, double dt, double tmax)
+{
+    // check alpha is multiple of dt
+    // double check_alpha = fmod(alpha, dt);
+
+    double y = log(x0);
+    double env;
+    if(RANDOM < 0.5)
+        env = +1.;
+    else env = -1.;
+
+    double t = 0.;
+    double t_next_change_env = t+RANDOM_EXP(tau);
+    
+    while(t<tmax)
+    {
+
+        // compute next environments
+	double env_next = env;
+	double env_prenext = env;
+        if((t+dt)>=t_next_change_env)
+        {
+            env_next = -env_next;
+            if((t+dt/2.)>=t_next_change_env)
+            	env_prenext = -env_prenext;
+
+	    t_next_change_env += RANDOM_EXP(tau);
+        }
+
+
+
+        double y_next = y + dt*(b-(d0*sigma*env));
+
+        y = y_next;
+        env = env_next;
+
+        t += dt;
+    }
+        return exp(y);
+}
 
 double calculate_G_delay(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration)
 {
     return log(integrate_lineardynamics_delay(alpha, b0, d, sigma, tau, 1., dt, tmax, log_integration))/tmax;
 }
+
 
 double calculate_G_nodelay(double b0, double d, double sigma, double tau, double dt, double tmax)
 {
@@ -738,6 +1075,122 @@ double calculate_meanG_nodelay(double b0, double d, double sigma, double tau, do
     for(int k=0; k<samples; k++)
     {
         G = calculate_G_nodelay(b0, d, sigma, tau, dt, tmax);
+        Gsum += G;
+        Gsum2 += G*G;
+    }
+    
+    Gsum /= samples;
+    Gsum2 /= samples;
+    
+
+    *Gstd = sqrt(Gsum2-Gsum*Gsum);
+    
+    return Gsum;
+}
+
+
+double calculate_G_delay_OU(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration)
+{
+    return log(integrate_lineardynamics_delay_OU(alpha, b0, d, sigma, tau, 1., dt, tmax, log_integration))/tmax;
+}
+
+double calculate_G_nodelay_OU(double b0, double d, double sigma, double tau, double dt, double tmax)
+{
+    return log(integrate_lineardynamics_nodelay_OU(b0, d, sigma, tau, 1., dt, tmax))/tmax;
+}
+
+double calculate_meanG_delay_OU(double alpha, double b0, double d, double sigma, double tau, double dt, double tmax, bool log_integration, int samples, double *Gstd)
+{
+    double Gsum = 0.;
+    double Gsum2 = 0.;
+    
+    double G;
+    
+    for(int k=0; k<samples; k++)
+    {
+        G = calculate_G_delay_OU(alpha, b0, d, sigma, tau, dt, tmax, log_integration);
+        Gsum += G;
+        Gsum2 += G*G;
+    }
+    
+    Gsum /= samples;
+    Gsum2 /= samples;
+    
+
+    *Gstd = sqrt(Gsum2-Gsum*Gsum);
+    
+    return Gsum;
+}
+
+
+double calculate_meanG_nodelay_OU(double b0, double d, double sigma, double tau, double dt, double tmax, int samples, double *Gstd)
+{
+    double Gsum = 0.;
+    double Gsum2 = 0.;
+    
+    double G;
+    
+    for(int k=0; k<samples; k++)
+    {
+        G = calculate_G_nodelay_OU(b0, d, sigma, tau, dt, tmax);
+        Gsum += G;
+        Gsum2 += G*G;
+    }
+    
+    Gsum /= samples;
+    Gsum2 /= samples;
+    
+
+    *Gstd = sqrt(Gsum2-Gsum*Gsum);
+    
+    return Gsum;
+}
+
+double calculate_G_delay_stochastic_death(double alpha, double b, double d0, double sigma, double tau, double dt, double tmax, bool log_integration)
+{
+    return log(integrate_lineardynamics_delay_stochastic_death(alpha, b, d0, sigma, tau, 1., dt, tmax, log_integration))/tmax;
+}
+
+
+double calculate_G_nodelay_stochastic_death(double b, double d0, double sigma, double tau, double dt, double tmax)
+{
+    return log(integrate_lineardynamics_nodelay_stochastic_death(b, d0, sigma, tau, 1., dt, tmax))/tmax;
+}
+
+double calculate_meanG_delay_stochastic_death(double alpha, double b, double d0, double sigma, double tau, double dt, double tmax, bool log_integration, int samples, double *Gstd)
+{
+    double Gsum = 0.;
+    double Gsum2 = 0.;
+    
+    double G;
+    
+    for(int k=0; k<samples; k++)
+    {
+        G = calculate_G_delay_stochastic_death(alpha, b, d0, sigma, tau, dt, tmax, log_integration);
+        Gsum += G;
+        Gsum2 += G*G;
+    }
+    
+    Gsum /= samples;
+    Gsum2 /= samples;
+    
+
+    *Gstd = sqrt(Gsum2-Gsum*Gsum);
+    
+    return Gsum;
+}
+
+
+double calculate_meanG_nodelay_stochastic_death(double b, double d0, double sigma, double tau, double dt, double tmax, int samples, double *Gstd)
+{
+    double Gsum = 0.;
+    double Gsum2 = 0.;
+    
+    double G;
+    
+    for(int k=0; k<samples; k++)
+    {
+        G = calculate_G_nodelay_stochastic_death(b, d0, sigma, tau, dt, tmax);
         Gsum += G;
         Gsum2 += G*G;
     }

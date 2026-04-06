@@ -1,48 +1,48 @@
-# Fluctuating environments favor extreme dormancy strategies and penalize intermediate ones
+# Fluctuating environments favor extreme reproductive delays and penalize intermediate ones
 
 **Authors:** Jorge Hidalgo, Lorenzo Fant, Rafael Rubio de Casas, and
 Miguel A. Muñoz
 
 This repository contains the code and data used in the paper\
-**"Fluctuating environments favor extreme dormancy strategies and penalize intermediate ones"**, [arXiv:2512.05856 (2025)](https://arxiv.org/abs/2512.05856)
-
-
+**"Fluctuating environments favor extreme reproductive delays and penalize intermediate ones"**, arXiv:2512.05856 (2025).
 It includes two main components:
 
 1.  Numerical simulations of a **delayed stochastic differential equation** describing population dynamics under environmental fluctuations.
-2.  An **agent-based evolutionary model** where dormancy is an evolving trait subject to mutation and natural selection.
+2.  An **agent-based evolutionary model** where reproductive delay is an evolving trait subject to mutation and natural selection.
 
 
 
-# 1. stochastic-equation
+# 1. `fixed-delay-stochastic-eq`: Delayed stochastic differential equation model
 
 This folder contains C++ simulations of a population governed by a delayed logistic equation with environmental stochasticity. The trajectories are analyzed in `figures.ipynb`.
 
+## Model summary
 
-In this model, the population density evolves as
+The population density evolves as:
 
-$$
-\frac{dx}{dt} = \left(b + \sigma  \xi_\tau(t)\right) x(t-\alpha)
-\left(1 - \frac{x(t)}{K}\right) - d  x(t).
-$$
+\[ `\dot{x}`{=tex}(t) = (b +
+`\sigma `{=tex}`\xi`{=tex}\_`\tau`{=tex}(t)), x(t-`\alpha`{=tex})
+`\left`{=tex}(1 - `\frac{x(t)}{K}`{=tex} `\right`{=tex}) - d, x(t). \]
 
-Environmental noise is represented by a dichotomous Markov process that alternates between $\xi_\tau=\pm 1$ at constant rate $\tau^{-1}$.
+Environmental noise 
+is represented by a dichotomous Markov process with
+autocorrelation:
 
-## Compilation
+\[ `\langle `{=tex}`\xi`{=tex}*`\tau`{=tex}(t),
+`\xi`{=tex}*`\tau`{=tex}(s)`\rangle `{=tex}=
+e\^{-2\|t-s\|/`\tau`{=tex}}. \]
+
+### Compilation
 
 Requires **GSL**. Compile with:
 
     g++ file.cpp -lm -lgsl -lgslcblas -o simulation
 
-# 2. evolutionary-algorithm
-
-This folder contains simulations of an explicit agent based model,implemented in Julia, where dormancy duration evolves through mutation and natural selection under a fluctuating environment. All ecological and evolutionary events are implemented via a **Gillespie algorithm**.
+# 2. `evolutionary-algorithm`: Agent-based evolutionary model
 
 # Citation
 
 If you use this repository, please cite:
 
-> J. Hidalgo, L. Fant, R. Rubio de Casas, and M. A. Muñoz,  
-> *Fluctuating environments favor extreme dormancy strategies and penalize intermediate ones*,  
-> [arXiv:2512.05856 (2025)](https://arxiv.org/abs/2512.05856)
-
+> J. Hidalgo, L. Fant, R. Rubio de Casas, and M. A. Muñoz,\
+> *Fluctuating environments favor extreme reproductive delays and penalize intermediate ones*, arXiv:2512.05856 (2025).
