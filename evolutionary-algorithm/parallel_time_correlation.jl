@@ -15,7 +15,7 @@ end
     import Agents: nextid, remove_agent!
     
     # Include the simulation code
-    include(joinpath(dirname(@__DIR__), "src", "resources_space.jl"))
+    include(joinpath(@__DIR__, "resources_space.jl"))   
     
     # Define plotting directory function
     plotsdir(args...) = joinpath(dirname(@__DIR__), "plots", args...)
