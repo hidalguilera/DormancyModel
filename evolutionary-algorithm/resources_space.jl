@@ -79,7 +79,7 @@ function initialize_model(; res_μ = 100,  res_σ = 1, τ=10.0,
 
         0)
 
-    model = Agents.ABM(Union{organism,seme}, space; properties, 
+    model = Agents.StandardABM(Union{organism,seme}, space; properties, 
                       scheduler = Schedulers.Randomly(),
                       agent_step! = Organism_step!,
                       model_step! = model_step!)
