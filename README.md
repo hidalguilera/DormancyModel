@@ -17,28 +17,27 @@ It includes two main components:
 This folder contains C++ simulations of a population governed by a delayed logistic equation with environmental stochasticity. Results are analyzed in `figures.ipynb`.
 
 ## Model summary
-
 The population density evolves as:
 
-$$
+```math
 \dot{x}(t)
 =
 \left[b+\sigma \xi_{\tau}(t)\right]
 x(t-\alpha)
 \left(1-\frac{x(t)}{K}\right)
 -d\,x(t).
-$$
+```
 
 Environmental noise is represented by a dichotomous Markov process with
 autocorrelation:
 
-$$
+```math
 \left\langle
 \xi_{\tau}(t)\,\xi_{\tau}(s)
 \right\rangle
 =
-e^{-2\lvert t-s\rvert/\tau}.
-$$
+\exp\left(-\frac{2\lvert t-s\rvert}{\tau}\right).
+```
 
 ### Compilation
 
